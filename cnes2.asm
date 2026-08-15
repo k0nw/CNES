@@ -1,13 +1,13 @@
 ; ============================================================================
-; CNES v2.0 - Heavy Duty Compilador NES
-; Arquitectura de 120MB RAM, Soporte para 600 Archivos, Proyecto .cnes
-; Tablas Hash, Macros, Evaluador Bitwise, Manejo de Errores Multi-Archivo
+; SugarRush Assembler v2.0 - Heavy Duty NES Compiler
+; 120MB RAM Architecture | 600 Files Support | .candy Project Files
+; A-Z Candy Themed Internal Memory Pools & Variables
 ; ============================================================================
 format PE console
 entry _start
 
 ; ============================================================================
-; Constantes de Windows API
+; Windows API Constants
 ; ============================================================================
 STD_OUTPUT_HANDLE     = -11
 STD_ERROR_HANDLE      = -12
@@ -23,34 +23,32 @@ MEM_RELEASE           = 0x8000
 INVALID_HANDLE_VALUE  = -1
 
 ; ============================================================================
-; Constantes del Ensamblador (Arquitectura 120MB)
+; Assembler Constants (120MB Architecture)
 ; ============================================================================
-MEM_TOTAL             = 125829120   ; 120 MB exactos
-POOL_SOURCE_SIZE      = 20971520    ; 20 MB para codigo fuente (hasta 600 archivos)
-POOL_OUTPUT_SIZE      = 16777216    ; 16 MB para ROM de salida
-POOL_SYMS_SIZE        = 64000000    ; 64 MB para 1,000,000 simbolos (64 bytes c/u)
-POOL_HASH_SIZE        = 8388608     ; 8 MB para tabla hash (2M entradas)
-POOL_STR_SIZE         = 10485760    ; 10 MB para string pool / macros
-POOL_MISC_SIZE        = 5242880     ; 5 MB para AST, pilas, buffers temporales
+MEM_TOTAL             = 125829120   ; 120 MB total
+POOL_SOURCE_SIZE      = 20971520    ; 20 MB
+POOL_OUTPUT_SIZE      = 16777216    ; 16 MB
+POOL_SYMS_SIZE        = 64000000    ; 64 MB
+POOL_HASH_SIZE        = 8388608     ; 8 MB
+POOL_STR_SIZE         = 10485760    ; 10 MB
+POOL_MISC_SIZE        = 5242880     ; 5 MB
 
 MAX_SYMBOLS           = 1000000
-SYM_ENTRY_SIZE        = 64          ; 48 nombre + 4 valor + 4 flags + 4 hash_next + 4 padding
-HASH_TABLE_SIZE       = 2097152     ; 2M entradas (mascara 0x1FFFFF)
+SYM_ENTRY_SIZE        = 64          ; 48 name + 4 val + 4 flags + 4 next + 4 pad
+HASH_TABLE_SIZE       = 2097152     ; 2M entries
 HASH_MASK             = 2097151
 
 MAX_FILES             = 600
-FILE_ENTRY_SIZE       = 268         ; 256 nombre + 4 offset + 4 length + 4 base_line
+FILE_ENTRY_SIZE       = 268         ; 256 name + 4 offset + 4 len + 4 base
 MAX_LINE              = 2048
 MAX_INCLUDES          = 64
 SYMBOL_NAME_LEN       = 48
 
-; Flags de simbolo
 SYM_DEFINED           = 1
 SYM_LABEL             = 2
 SYM_CONSTANT          = 4
 SYM_MACRO             = 8
 
-; Modos de direccionamiento
 AM_IMPLIED            = 0
 AM_ACCUMULATOR        = 1
 AM_IMMEDIATE          = 2
@@ -66,103 +64,84 @@ AM_INDIRECT_Y         = 11
 AM_RELATIVE           = 12
 
 ; ============================================================================
-; Seccion de datos
+; Data Section
 ; ============================================================================
 section '.data' data readable writeable
 
-; --- Mensajes ---
-msg_banner      db 'CNES v1.1 - caramel cookie Alfajor',13,10
-                db '120MB RAM | 600 Archivos | Proyecto .cnes | Tablas Hash',13,10
-                db 'Soporte: .rept, .if, Operadores Bitwise',13,10,0
-msg_usage       db 'Uso: cnes proyecto.cnes  o  cnes archivo.asm',13,10,0
-msg_reading     db 'Leyendo proyecto: ',0
-msg_pass1       db 'Pasada 1: Analizando simbolos...',13,10,0
-msg_pass2       db 'Pasada 2: Generando codigo...',13,10,0
-msg_writing     db 'Escribiendo ROM: ',0
-msg_done        db 'Compilacion exitosa!',13,10,0
-msg_symbols     db ' simbolos definidos',13,10,0
-msg_bytes       db ' bytes de PRG-ROM generados',13,10,0
-msg_files       db ' archivos cargados',13,10,0
-msg_err_open    db 'Error: No se puede abrir: ',0
-msg_err_read    db 'Error: No se puede leer el archivo',13,10,0
-msg_err_write   db 'Error: No se puede escribir el archivo de salida',13,10,0
-msg_err_mem     db 'Error: No hay memoria suficiente (Fallo VirtualAlloc 120MB)',13,10,0
-msg_err_syntax  db 'Error de sintaxis',13,10,0
-msg_err_undef   db 'Error: Simbolo no definido: ',0
-msg_err_range   db 'Error: Valor fuera de rango',13,10,0
-msg_err_branch  db 'Error: Salto fuera de rango',13,10,0
-msg_err_opcode  db 'Error: Instruccion invalida',13,10,0
-msg_err_addr    db 'Error: Modo de direccionamiento invalido',13,10,0
-msg_err_include db 'Error: No se puede incluir archivo',13,10,0
-msg_at_line     db ' en linea ',0
-msg_in_file     db ' en archivo ',0
-msg_colon       db ': ',0
+; --- UI Messages (English) ---
+msg_banner      db 'SugarRush Assembler v2.0 - Heavy Duty NES Compiler',13,10
+                db '120MB RAM | 600 Files | A-Z Candy Architecture',13,10,0
+msg_usage       db 'Usage: SugarRush project.candy  or  SugarRush file.asm',13,10,0
+msg_reading     db 'Reading project: ',0
+msg_pass1       db 'Pass 1: Analyzing symbols...',13,10,0
+msg_pass2       db 'Pass 2: Generating code...',13,10,0
+msg_writing     db 'Writing ROM: ',0
+msg_done        db 'Compilation successful!',13,10,0
+msg_symbols     db ' symbols defined',13,10,0
+msg_bytes       db ' bytes of PRG-ROM generated',13,10,0
+msg_err_open    db 'Error: Cannot open: ',0
+msg_err_mem     db 'Error: Out of memory (VirtualAlloc 120MB failed)',13,10,0
+msg_err_write   db 'Error: Cannot write output file',13,10,0
 msg_newline     db 13,10,0
 
-; --- Variables del ensamblador ---
+; --- A-Z Candy Themed Variables ---
 input_filename  db 260 dup(0)
 output_filename db 260 dup(0)
 base_path       db 260 dup(0)
 
-; Punteros a pools de memoria (Asignados con VirtualAlloc)
 mem_base        dd 0
-pool_source     dd 0
-pool_output     dd 0
-pool_symbols    dd 0
-pool_hash       dd 0
-pool_strings    dd 0
-pool_misc       dd 0
+Apple_Pool      dd 0        ; A - Apple (Source Pool)
+Bonbon_Pool     dd 0        ; B - Bonbon (Output Pool)
+Caramel_Pool    dd 0        ; C - Caramel (Symbol Pool)
+Donut_Pool      dd 0        ; D - Donut (Hash Pool)
+Eclair_Pool     dd 0        ; E - Eclair (String Pool)
+Fudge_Pool      dd 0        ; F - Fudge (Misc Pool)
 
-; Buffers temporales
-line_buf        db MAX_LINE dup(0)
-token_buf       db MAX_LINE dup(0)
-operand_buf     db MAX_LINE dup(0)
-path_buf        db 260 dup(0)
-
-; Estado del proyecto
-file_table      rb MAX_FILES * FILE_ENTRY_SIZE
+Gummy_Table     rb MAX_FILES * FILE_ENTRY_SIZE ; G - Gummy (File Table)
 num_files       dd 0
-current_file_idx dd 0
 
-; Estado del ensamblador
-current_pass    dd 0
-current_pc      dd 0
-current_org     dd 0x8000
-output_pos      dd 0
-source_pos      dd 0
-source_len      dd 0
-line_number     dd 0
-num_symbols     dd 0
-error_count     dd 0
+IceCream_Stack  rb 64       ; I - IceCream (If Stack)
+if_sp           dd 0
+
+Jawbreaker_Stack_Pos rd 32  ; J - Jawbreaker (Rept Stack Pos)
+Jawbreaker_Stack_Line rd 32 ; J - Jawbreaker (Rept Stack Line)
+Jawbreaker_Stack_Cnt rd 32  ; J - Jawbreaker (Rept Stack Count)
+rept_sp         dd 0
+
+KitKat_Buf      db MAX_LINE dup(0) ; K - KitKat (Token Buffer)
+Lollipop_Buf    db MAX_LINE dup(0) ; L - Lollipop (Line Buffer)
+Marshmallow_Buf db MAX_LINE dup(0) ; M - Marshmallow (Operand Buffer)
+Nougat_Buf      db 260 dup(0)      ; N - Nougat (Path Buffer)
+
+Oreo_Handle     dd 0        ; O - Oreo (Stdout Handle)
+Peppermint_Handle dd 0      ; P - Peppermint (Stderr Handle)
+Quince_Handle   dd 0        ; Q - Quince (File Handle)
+RockCandy_Bytes dd 0        ; R - RockCandy (Bytes Read/Written)
+
+Snickers_PC     dd 0        ; S - Snickers (Program Counter)
+Taffy_Org       dd 0x8000   ; T - Taffy (Origin)
+Uno_Bar_Pos     dd 0        ; U - U-No Bar (Output Position)
+Vanilla_Pos     dd 0        ; V - Vanilla (Source Position)
+Waffle_Len      dd 0        ; W - Waffle (Source Length)
+Xylitol_Line    dd 0        ; X - Xylitol (Line Number)
+York_Syms       dd 0        ; Y - York (Symbol Count)
+Zagnut_Errs     dd 0        ; Z - Zagnut (Error Count)
+
 has_errors      dd 0
+current_pass    dd 0
 
-; Configuracion iNES
 ines_prg        dd 1
 ines_chr        dd 0
 ines_mirror     dd 0
 ines_mapper     dd 0
 ines_battery    dd 0
 
-; Variables de banco y RS
 current_bank    dd 0
 rs_address      dd 0
 
-; Pilas para .rept y .if
-rept_stack_pos  rd 32
-rept_stack_line rd 32
-rept_stack_cnt  rd 32
-rept_sp         dd 0
+expr_value      dd 0
 
-if_stack        rb 64
-if_sp           dd 0
-
-; Handles de Windows
-stdout_handle   dd 0
-stderr_handle   dd 0
-file_handle     dd 0
-bytes_rw        dd 0
-
-; Tabla de opcodes del 6502
+; 6502 Opcode Table
 align 4
 opcode_table:
 op_adc  db 'ADC',0,  0xFF,0xFF,0x69,0x65,0x75,0xFF,0x6D,0x7D,0x79,0xFF,0x61,0x71,0xFF, 0,0,0
@@ -228,17 +207,17 @@ instr_sizes db 1,  1,  2,  2,  2,  2,  3,  3,   3,   3,  2,   2,   2
 num_buf     db 16 dup(0)
 
 ; ============================================================================
-; Seccion de codigo
+; Code Section
 ; ============================================================================
 section '.text' code readable executable
 
 _start:
         push    STD_OUTPUT_HANDLE
         call    [GetStdHandle]
-        mov     [stdout_handle], eax
+        mov     [Oreo_Handle], eax
         push    STD_ERROR_HANDLE
         call    [GetStdHandle]
-        mov     [stderr_handle], eax
+        mov     [Peppermint_Handle], eax
 
         push    msg_banner
         call    print_string
@@ -261,13 +240,11 @@ _start:
         lea     edi, [output_filename]
         call    make_output_name
 
-        ; Verificar si es un proyecto .cnes
         lea     esi, [input_filename]
-        call    check_extension_cnes
+        call    check_extension_candy
         test    eax, eax
         jnz     .is_project
 
-        ; Es un archivo .asm simple
         push    input_filename
         call    load_source_file
         test    eax, eax
@@ -295,7 +272,7 @@ _start:
         cmp     dword [has_errors], 0
         jne     .had_errors
 
-        push    dword [num_symbols]
+        push    dword [York_Syms]
         call    print_number
         push    msg_symbols
         call    print_string
@@ -303,12 +280,12 @@ _start:
         push    msg_pass2
         call    print_string
         mov     dword [current_pass], 2
-        mov     dword [output_pos], 0
+        mov     dword [Uno_Bar_Pos], 0
         call    assemble_pass
         cmp     dword [has_errors], 0
         jne     .had_errors
 
-        push    dword [output_pos]
+        push    dword [Uno_Bar_Pos]
         call    print_number
         push    msg_bytes
         call    print_string
@@ -359,9 +336,6 @@ _start:
         push    1
         call    [ExitProcess]
 
-; ============================================================================
-; alloc_memory - Asigna 120MB de RAM y particiona en pools
-; ============================================================================
 alloc_memory:
         push    PAGE_READWRITE
         push    MEM_COMMIT or MEM_RESERVE
@@ -373,17 +347,17 @@ alloc_memory:
         mov     [mem_base], eax
 
         mov     ebx, eax
-        mov     [pool_source], ebx
+        mov     [Apple_Pool], ebx
         add     ebx, POOL_SOURCE_SIZE
-        mov     [pool_output], ebx
+        mov     [Bonbon_Pool], ebx
         add     ebx, POOL_OUTPUT_SIZE
-        mov     [pool_symbols], ebx
+        mov     [Caramel_Pool], ebx
         add     ebx, POOL_SYMS_SIZE
-        mov     [pool_hash], ebx
+        mov     [Donut_Pool], ebx
         add     ebx, POOL_HASH_SIZE
-        mov     [pool_strings], ebx
+        mov     [Eclair_Pool], ebx
         add     ebx, POOL_STR_SIZE
-        mov     [pool_misc], ebx
+        mov     [Fudge_Pool], ebx
         
         xor     eax, eax
         inc     eax
@@ -392,10 +366,7 @@ alloc_memory:
         xor     eax, eax
         ret
 
-; ============================================================================
-; check_extension_cnes - Verifica si el archivo termina en .cnes
-; ============================================================================
-check_extension_cnes:
+check_extension_candy:
         push    esi
         xor     ecx, ecx
 .find_dot:
@@ -416,15 +387,19 @@ check_extension_cnes:
         jne     .ret_false
         lodsb
         or      al, 0x20
+        cmp     al, 'a'
+        jne     .ret_false
+        lodsb
+        or      al, 0x20
         cmp     al, 'n'
         jne     .ret_false
         lodsb
         or      al, 0x20
-        cmp     al, 'e'
+        cmp     al, 'd'
         jne     .ret_false
         lodsb
         or      al, 0x20
-        cmp     al, 's'
+        cmp     al, 'y'
         jne     .ret_false
         pop     esi
         mov     eax, 1
@@ -434,24 +409,20 @@ check_extension_cnes:
         xor     eax, eax
         ret
 
-; ============================================================================
-; parse_project_file - Lee data.cnes y carga los archivos .asm
-; ============================================================================
 parse_project_file:
         push    ebp
         mov     ebp, esp
         push    ebx
         push    edi
 
-        ; Obtener ruta absoluta y directorio base
         push    0
-        lea     eax, [path_buf]
+        lea     eax, [Nougat_Buf]
         push    eax
         push    260
         push    dword [ebp+8]
         call    [GetFullPathNameA]
 
-        lea     esi, [path_buf]
+        lea     esi, [Nougat_Buf]
         xor     ecx, ecx
 .find_last_slash:
         lodsb
@@ -472,7 +443,7 @@ parse_project_file:
         jz      .no_dir
         mov     byte [edx+1], 0
 .no_dir:
-        lea     esi, [path_buf]
+        lea     esi, [Nougat_Buf]
         lea     edi, [base_path]
 .copy_base:
         lodsb
@@ -480,7 +451,6 @@ parse_project_file:
         test    al, al
         jnz     .copy_base
 
-        ; Abrir archivo .cnes
         push    0
         push    FILE_ATTRIBUTE_NORMAL
         push    OPEN_EXISTING
@@ -493,10 +463,9 @@ parse_project_file:
         je      .fail
 
         mov     ebx, eax
-        ; Leer en pool_misc temporalmente
-        mov     edi, [pool_misc]
+        mov     edi, [Fudge_Pool]
         push    0
-        push    bytes_rw
+        push    RockCandy_Bytes
         push    POOL_MISC_SIZE
         push    edi
         push    ebx
@@ -504,7 +473,7 @@ parse_project_file:
         push    ebx
         call    [CloseHandle]
 
-        mov     ecx, [bytes_rw]
+        mov     ecx, [RockCandy_Bytes]
         mov     byte [edi+ecx], 0
         mov     esi, edi
 
@@ -517,8 +486,7 @@ parse_project_file:
         cmp     word [esi], '//'
         je      .skip_line
 
-        ; Leer clave
-        lea     edi, [token_buf]
+        lea     edi, [KitKat_Buf]
         xor     ecx, ecx
 .read_key:
         mov     al, [esi]
@@ -546,8 +514,7 @@ parse_project_file:
         inc     esi
         call    .skip_ws
 
-        ; Leer valor
-        lea     edi, [operand_buf]
+        lea     edi, [Marshmallow_Buf]
         xor     ecx, ecx
 .read_val:
         mov     al, [esi]
@@ -566,32 +533,28 @@ parse_project_file:
 .got_val:
         mov     byte [edi], 0
 
-        ; Procesar clave
-        lea     eax, [token_buf]
-        cmp     dword [eax], 'arch'
-        je      .load_file
+        lea     eax, [KitKat_Buf]
         cmp     dword [eax], 'file'
         je      .load_file
         jmp     .check_config
 
 .load_file:
-        ; Concatenar base_path + operand_buf
         lea     esi, [base_path]
-        lea     edi, [path_buf]
+        lea     edi, [Nougat_Buf]
 .copy_base2:
         lodsb
         stosb
         test    al, al
         jnz     .copy_base2
         dec     edi
-        lea     esi, [operand_buf]
+        lea     esi, [Marshmallow_Buf]
 .copy_file:
         lodsb
         stosb
         test    al, al
         jnz     .copy_file
         
-        push    path_buf
+        push    Nougat_Buf
         call    load_source_file
         jmp     .next_line
 
@@ -609,22 +572,22 @@ parse_project_file:
         jmp     .next_line
 
 .set_prg:
-        lea     esi, [operand_buf]
+        lea     esi, [Marshmallow_Buf]
         call    eval_expression
         mov     [ines_prg], eax
         jmp     .next_line
 .set_chr:
-        lea     esi, [operand_buf]
+        lea     esi, [Marshmallow_Buf]
         call    eval_expression
         mov     [ines_chr], eax
         jmp     .next_line
 .set_mir:
-        lea     esi, [operand_buf]
+        lea     esi, [Marshmallow_Buf]
         call    eval_expression
         mov     [ines_mirror], eax
         jmp     .next_line
 .set_map:
-        lea     esi, [operand_buf]
+        lea     esi, [Marshmallow_Buf]
         call    eval_expression
         mov     [ines_mapper], eax
 
@@ -670,9 +633,6 @@ parse_project_file:
         pop     ebp
         ret     4
 
-; ============================================================================
-; load_source_file - Carga un archivo .asm al pool_source
-; ============================================================================
 load_source_file:
         push    ebp
         mov     ebp, esp
@@ -696,33 +656,29 @@ load_source_file:
         call    [GetFileSize]
         mov     ecx, eax
 
-        ; Verificar espacio en pool_source
-        mov     edx, [source_len]
+        mov     edx, [Waffle_Len]
         add     edx, ecx
-        add     edx, 2 ; newlines
+        add     edx, 2
         cmp     edx, POOL_SOURCE_SIZE
         ja      .close_fail
 
-        ; Leer archivo
-        mov     edi, [pool_source]
-        add     edi, [source_len]
+        mov     edi, [Apple_Pool]
+        add     edi, [Waffle_Len]
         push    0
-        push    bytes_rw
+        push    RockCandy_Bytes
         push    ecx
         push    edi
         push    ebx
         call    [ReadFile]
 
-        ; Agregar a file_table
         mov     eax, [num_files]
         cmp     eax, MAX_FILES
         jge     .close_fail
         
         mov     edi, eax
         imul    edi, FILE_ENTRY_SIZE
-        add     edi, file_table
+        add     edi, Gummy_Table
         
-        ; Copiar nombre
         push    edi
         mov     esi, [ebp+8]
         xor     ecx, ecx
@@ -734,22 +690,23 @@ load_source_file:
         jnz     .copy_name
         pop     edi
         
-        ; Offset y Length
-        mov     eax, [source_len]
+        mov     eax, [Waffle_Len]
         mov     [edi+256], eax
-        mov     eax, [bytes_rw]
+        mov     eax, [RockCandy_Bytes]
         mov     [edi+260], eax
         mov     dword [edi+264], 0
         
         inc     dword [num_files]
-        add     [source_len], dword [bytes_rw]
         
-        ; Agregar newlines para separar archivos
-        mov     edi, [pool_source]
-        add     edi, [source_len]
+        ; FIXED: Avoid memory-to-memory addition
+        mov     eax, [RockCandy_Bytes]
+        add     [Waffle_Len], eax
+        
+        mov     edi, [Apple_Pool]
+        add     edi, [Waffle_Len]
         mov     byte [edi], 13
         mov     byte [edi+1], 10
-        add     dword [source_len], 2
+        add     dword [Waffle_Len], 2
 
         push    ebx
         call    [CloseHandle]
@@ -769,57 +726,51 @@ load_source_file:
         pop     ebp
         ret     4
 
-; ============================================================================
-; assemble_pass - Ejecuta una pasada del ensamblador
-; ============================================================================
 assemble_pass:
         pushad
-        mov     eax, [current_org]
-        mov     [current_pc], eax
-        mov     dword [source_pos], 0
-        mov     dword [line_number], 0
-        mov     dword [error_count], 0
+        mov     eax, [Taffy_Org]
+        mov     [Snickers_PC], eax
+        mov     dword [Vanilla_Pos], 0
+        mov     dword [Xylitol_Line], 0
+        mov     dword [Zagnut_Errs], 0
         mov     dword [has_errors], 0
         mov     dword [rept_sp], 0
         mov     dword [if_sp], 0
 
         cmp     dword [current_pass], 2
         jne     .pass1_init
-        mov     dword [current_pc], 0x8000
-        mov     dword [current_org], 0x8000
+        mov     dword [Snickers_PC], 0x8000
+        mov     dword [Taffy_Org], 0x8000
         jmp     .main_loop
 .pass1_init:
-        mov     dword [num_symbols], 0
-        ; Limpiar tabla hash
-        mov     edi, [pool_hash]
+        mov     dword [York_Syms], 0
+        mov     edi, [Donut_Pool]
         mov     ecx, HASH_TABLE_SIZE
         xor     eax, eax
         rep     stosd
 
 .main_loop:
-        mov     eax, [source_pos]
-        cmp     eax, [source_len]
+        mov     eax, [Vanilla_Pos]
+        cmp     eax, [Waffle_Len]
         jge     .pass_done
 
         call    read_line
-        inc     dword [line_number]
+        inc     dword [Xylitol_Line]
         
-        ; Verificar si estamos saltando por un .if falso
         mov     eax, [if_sp]
         test    eax, eax
         jz      .process
         dec     eax
-        movzx   eax, byte [if_stack + eax]
+        movzx   eax, byte [IceCream_Stack + eax]
         test    eax, eax
         jnz     .process
         
-        ; Estamos saltando, solo buscar .if, .else, .endif
-        lea     esi, [line_buf]
+        lea     esi, [Lollipop_Buf]
         call    skip_ws
         cmp     byte [esi], '.'
         jne     .main_loop
         inc     esi
-        lea     edi, [token_buf]
+        lea     edi, [KitKat_Buf]
         xor     ecx, ecx
 .read_dir:
         mov     al, [esi+ecx]
@@ -830,7 +781,7 @@ assemble_pass:
         jmp     .read_dir
 .check_dir:
         mov     byte [edi+ecx], 0
-        lea     eax, [token_buf]
+        lea     eax, [KitKat_Buf]
         cmp     dword [eax], 'if' + (0 shl 16)
         je      .inc_if
         cmp     dword [eax], 'else'
@@ -840,24 +791,24 @@ assemble_pass:
         jmp     .main_loop
 .inc_if:
         mov     eax, [if_sp]
-        mov     byte [if_stack + eax], 0
+        mov     byte [IceCream_Stack + eax], 0
         inc     dword [if_sp]
         jmp     .main_loop
 .toggle_if:
         mov     eax, [if_sp]
         dec     eax
-        movzx   eax, byte [if_stack + eax]
+        movzx   eax, byte [IceCream_Stack + eax]
         xor     eax, 1
         mov     edx, [if_sp]
         dec     edx
-        mov     [if_stack + edx], al
+        mov     [IceCream_Stack + edx], al
         jmp     .main_loop
 .dec_if:
         dec     dword [if_sp]
         jmp     .main_loop
 
 .process:
-        lea     esi, [line_buf]
+        lea     esi, [Lollipop_Buf]
         call    process_line
         jmp     .main_loop
 
@@ -865,21 +816,18 @@ assemble_pass:
         popad
         ret
 
-; ============================================================================
-; read_line - Lee una linea del pool_source
-; ============================================================================
 read_line:
         push    esi
         push    edi
         push    ecx
-        mov     esi, [pool_source]
-        add     esi, [source_pos]
-        lea     edi, [line_buf]
+        mov     esi, [Apple_Pool]
+        add     esi, [Vanilla_Pos]
+        lea     edi, [Lollipop_Buf]
         xor     ecx, ecx
 .read_char:
-        mov     eax, [source_pos]
+        mov     eax, [Vanilla_Pos]
         add     eax, ecx
-        cmp     eax, [source_len]
+        cmp     eax, [Waffle_Len]
         jge     .end_of_source
         mov     al, [esi+ecx]
         cmp     al, 13
@@ -893,11 +841,11 @@ read_line:
         jmp     .read_char
 .found_eol:
         mov     byte [edi+ecx], 0
-        add     ecx, [source_pos]
+        add     ecx, [Vanilla_Pos]
 .skip_eol:
-        cmp     ecx, [source_len]
+        cmp     ecx, [Waffle_Len]
         jge     .done
-        mov     esi, [pool_source]
+        mov     esi, [Apple_Pool]
         mov     al, [esi+ecx]
         cmp     al, 13
         je      .skip_one
@@ -908,23 +856,20 @@ read_line:
         inc     ecx
         jmp     .skip_eol
 .done:
-        mov     [source_pos], ecx
+        mov     [Vanilla_Pos], ecx
         pop     ecx
         pop     edi
         pop     esi
         ret
 .end_of_source:
         mov     byte [edi+ecx], 0
-        add     ecx, [source_pos]
-        mov     [source_pos], ecx
+        add     ecx, [Vanilla_Pos]
+        mov     [Vanilla_Pos], ecx
         pop     ecx
         pop     edi
         pop     esi
         ret
 
-; ============================================================================
-; process_line - Procesa una linea de ensamblador
-; ============================================================================
 process_line:
         pushad
         call    skip_ws
@@ -1043,7 +988,7 @@ is_digit:
 
 handle_label:
         push    edi
-        lea     edi, [token_buf]
+        lea     edi, [KitKat_Buf]
         xor     ecx, ecx
 .hl_copy:
         mov     al, [esi]
@@ -1072,9 +1017,9 @@ handle_label:
         pop     edi
         cmp     dword [current_pass], 1
         jne     .hl_skip_add
-        mov     edx, [current_pc]
+        mov     edx, [Snickers_PC]
         mov     ecx, SYM_DEFINED or SYM_LABEL
-        lea     esi, [token_buf]
+        lea     esi, [KitKat_Buf]
         call    add_symbol
 .hl_skip_add:
         ret
@@ -1086,7 +1031,7 @@ check_assignment:
         mov     al, [esi]
         call    is_ident_start
         jnc     .ca_no
-        lea     edi, [token_buf]
+        lea     edi, [KitKat_Buf]
         xor     ecx, ecx
 .ca_ident:
         mov     al, [esi+ecx]
@@ -1141,7 +1086,7 @@ check_assignment:
         jne     .ca_done
         mov     edx, eax
         mov     ecx, SYM_DEFINED or SYM_CONSTANT
-        lea     esi, [token_buf]
+        lea     esi, [KitKat_Buf]
         call    add_symbol
 .ca_done:
         pop     esi
@@ -1159,7 +1104,7 @@ check_assignment:
 handle_directive:
         inc     esi
         push    edi
-        lea     edi, [token_buf]
+        lea     edi, [KitKat_Buf]
         xor     ecx, ecx
 .hd_copy:
         mov     al, [esi+ecx]
@@ -1179,7 +1124,7 @@ handle_directive:
         add     esi, ecx
         pop     edi
         call    skip_ws
-        lea     eax, [token_buf]
+        lea     eax, [KitKat_Buf]
         cmp     dword [eax], 'org' + (0 shl 24)
         je      .dir_org
         cmp     word [eax], 'db'
@@ -1201,10 +1146,6 @@ handle_directive:
         cmp     dword [eax+4], 'map' + (0 shl 24)
         je      .dir_inesmap
 .not_ines:
-        cmp     dword [eax], 'incl'
-        je      .dir_include
-        cmp     dword [eax], 'incb'
-        je      .dir_incbin
         cmp     dword [eax], 'bank'
         je      .dir_bank
         cmp     dword [eax], 'rsse'
@@ -1213,8 +1154,6 @@ handle_directive:
         je      .dir_rs
         cmp     word [eax], 'ds'
         je      .dir_ds
-        cmp     dword [eax], 'asci'
-        je      .dir_ascii
         cmp     dword [eax], 'alig'
         je      .dir_align
         cmp     dword [eax], 'rept'
@@ -1231,8 +1170,8 @@ handle_directive:
 
 .dir_org:
         call    eval_expression
-        mov     [current_pc], eax
-        mov     [current_org], eax
+        mov     [Snickers_PC], eax
+        mov     [Taffy_Org], eax
         ret
 
 .dir_db:
@@ -1249,7 +1188,7 @@ handle_directive:
         jne     .db_skip_emit
         call    emit_byte_al
 .db_skip_emit:
-        inc     dword [current_pc]
+        inc     dword [Snickers_PC]
         call    skip_ws
         cmp     byte [esi], ','
         jne     .db_done
@@ -1269,7 +1208,7 @@ handle_directive:
         jne     .dbs_skip
         call    emit_byte_al
 .dbs_skip:
-        inc     dword [current_pc]
+        inc     dword [Snickers_PC]
         inc     esi
         jmp     .dbs_loop
 .dbs_end:
@@ -1297,7 +1236,7 @@ handle_directive:
         mov     al, ah
         call    emit_byte_al
 .dw_skip:
-        add     dword [current_pc], 2
+        add     dword [Snickers_PC], 2
         call    skip_ws
         cmp     byte [esi], ','
         jne     .dw_done
@@ -1306,38 +1245,63 @@ handle_directive:
 .dw_done:
         ret
 
-.dir_inesprg: call eval_expression, mov [ines_prg], eax, ret
-.dir_ineschr: call eval_expression, mov [ines_chr], eax, ret
-.dir_inesmir: call eval_expression, mov [ines_mirror], eax, ret
-.dir_inesmap: call eval_expression, mov [ines_mapper], eax, ret
+.dir_inesprg:
+        call    eval_expression
+        mov     [ines_prg], eax
+        ret
 
-.dir_include: ret
-.dir_incbin: ret
-.dir_bank: call eval_expression, mov [current_bank], eax, ret
-.dir_rsset: call eval_expression, mov [rs_address], eax, ret
-.dir_rs: call eval_expression, add [rs_address], eax, ret
-.dir_ascii: ret
+.dir_ineschr:
+        call    eval_expression
+        mov     [ines_chr], eax
+        ret
+
+.dir_inesmir:
+        call    eval_expression
+        mov     [ines_mirror], eax
+        ret
+
+.dir_inesmap:
+        call    eval_expression
+        mov     [ines_mapper], eax
+        ret
+
+.dir_bank:
+        call    eval_expression
+        mov     [current_bank], eax
+        ret
+
+.dir_rsset:
+        call    eval_expression
+        mov     [rs_address], eax
+        ret
+
+.dir_rs:
+        call    eval_expression
+        add     [rs_address], eax
+        ret
+
+
 .dir_if:
         call    eval_expression
         test    eax, eax
         jz      .if_false
         mov     eax, [if_sp]
-        mov     byte [if_stack + eax], 1
+        mov     byte [IceCream_Stack + eax], 1
         inc     dword [if_sp]
         ret
 .if_false:
         mov     eax, [if_sp]
-        mov     byte [if_stack + eax], 0
+        mov     byte [IceCream_Stack + eax], 0
         inc     dword [if_sp]
         ret
 .dir_else:
         mov     eax, [if_sp]
         dec     eax
-        movzx   eax, byte [if_stack + eax]
+        movzx   eax, byte [IceCream_Stack + eax]
         xor     eax, 1
         mov     edx, [if_sp]
         dec     edx
-        mov     [if_stack + edx], al
+        mov     [IceCream_Stack + edx], al
         ret
 .dir_endif:
         dec     dword [if_sp]
@@ -1348,11 +1312,11 @@ handle_directive:
         mov     eax, [rept_sp]
         cmp     eax, 32
         jge     .rept_full
-        mov     ecx, [source_pos]
-        mov     edx, [line_number]
-        mov     [rept_stack_pos + eax*4], ecx
-        mov     [rept_stack_line + eax*4], edx
-        mov     [rept_stack_cnt + eax*4], ebx
+        mov     ecx, [Vanilla_Pos]
+        mov     edx, [Xylitol_Line]
+        mov     [Jawbreaker_Stack_Pos + eax*4], ecx
+        mov     [Jawbreaker_Stack_Line + eax*4], edx
+        mov     [Jawbreaker_Stack_Cnt + eax*4], ebx
         inc     dword [rept_sp]
 .rept_full:
         ret
@@ -1362,15 +1326,15 @@ handle_directive:
         jz      .endr_err
         dec     eax
         mov     [rept_sp], eax
-        mov     ebx, [rept_stack_cnt + eax*4]
+        mov     ebx, [Jawbreaker_Stack_Cnt + eax*4]
         dec     ebx
-        mov     [rept_stack_cnt + eax*4], ebx
+        mov     [Jawbreaker_Stack_Cnt + eax*4], ebx
         test    ebx, ebx
         jz      .endr_done
-        mov     ecx, [rept_stack_pos + eax*4]
-        mov     [source_pos], ecx
-        mov     edx, [rept_stack_line + eax*4]
-        mov     [line_number], edx
+        mov     ecx, [Jawbreaker_Stack_Pos + eax*4]
+        mov     [Vanilla_Pos], ecx
+        mov     edx, [Jawbreaker_Stack_Line + eax*4]
+        mov     [Xylitol_Line], edx
         inc     dword [rept_sp]
 .endr_done:
 .endr_err:
@@ -1387,12 +1351,12 @@ handle_directive:
         xor     al, al
         call    emit_byte_al
         dec     ecx
-        inc     dword [current_pc]
+        inc     dword [Snickers_PC]
         jmp     .ds_emit
 .ds_skip:
         cmp     dword [current_pass], 1
         jne     .ds_done2
-        add     [current_pc], ecx
+        add     [Snickers_PC], ecx
 .ds_done2:
         ret
 
@@ -1401,7 +1365,7 @@ handle_directive:
         test    eax, eax
         jz      .al_done
         mov     ecx, eax
-        mov     eax, [current_pc]
+        mov     eax, [Snickers_PC]
         xor     edx, edx
         div     ecx
         test    edx, edx
@@ -1415,19 +1379,16 @@ handle_directive:
         xor     al, al
         call    emit_byte_al
         dec     ecx
-        inc     dword [current_pc]
+        inc     dword [Snickers_PC]
         jmp     .al_emit
 .al_skip:
-        add     [current_pc], ecx
+        add     [Snickers_PC], ecx
 .al_done:
         ret
 
-; ============================================================================
-; handle_instruction
-; ============================================================================
 handle_instruction:
         push    edi
-        lea     edi, [token_buf]
+        lea     edi, [KitKat_Buf]
         xor     ecx, ecx
 .hi_copy:
         mov     al, [esi+ecx]
@@ -1461,12 +1422,12 @@ handle_instruction:
         movzx   edx, byte [instr_sizes+eax]
         cmp     dword [current_pass], 1
         jne     .hi_emit
-        add     [current_pc], edx
+        add     [Snickers_PC], edx
         ret
 .hi_emit:
         mov     al, cl
         call    emit_byte_al
-        inc     dword [current_pc]
+        inc     dword [Snickers_PC]
         cmp     edx, 1
         je      .hi_done
         mov     eax, [expr_value]
@@ -1474,20 +1435,20 @@ handle_instruction:
         je      .hi_one_byte
         push    eax
         call    emit_byte_al
-        inc     dword [current_pc]
+        inc     dword [Snickers_PC]
         pop     eax
         shr     eax, 8
         call    emit_byte_al
-        inc     dword [current_pc]
+        inc     dword [Snickers_PC]
         jmp     .hi_done
 .hi_one_byte:
         call    emit_byte_al
-        inc     dword [current_pc]
+        inc     dword [Snickers_PC]
 .hi_done:
         ret
 .hi_error:
 .hi_addr_error:
-        add     dword [current_pc], 1
+        add     dword [Snickers_PC], 1
         ret
 
 find_opcode:
@@ -1496,13 +1457,13 @@ find_opcode:
         lea     edx, [opcode_table]
         mov     ecx, NUM_OPCODES
 .fo_loop:
-        mov     al, [token_buf]
+        mov     al, [KitKat_Buf]
         cmp     al, [edx]
         jne     .fo_next
-        mov     al, [token_buf+1]
+        mov     al, [KitKat_Buf+1]
         cmp     al, [edx+1]
         jne     .fo_next
-        mov     al, [token_buf+2]
+        mov     al, [KitKat_Buf+2]
         cmp     al, [edx+2]
         jne     .fo_next
         mov     eax, edx
@@ -1527,9 +1488,9 @@ parse_addressing_mode:
         je      .pam_implied
         cmp     word [esi], '//'
         je      .pam_implied
-        cmp     byte [token_buf], 'B'
+        cmp     byte [KitKat_Buf], 'B'
         jne     .pam_not_branch
-        lea     eax, [token_buf]
+        lea     eax, [KitKat_Buf]
         cmp     word [eax+1], 'CC'
         je      .pam_relative
         cmp     word [eax+1], 'CS'
@@ -1603,7 +1564,7 @@ parse_addressing_mode:
         mov     eax, [expr_value]
         cmp     eax, 0xFF
         ja      .pam_absolute
-        cmp     byte [token_buf], 'J'
+        cmp     byte [KitKat_Buf], 'J'
         je      .pam_absolute
         mov     eax, AM_ZEROPAGE
         jmp     .pam_done
@@ -1626,7 +1587,7 @@ parse_addressing_mode:
         call    eval_expression
         cmp     dword [current_pass], 2
         jne     .pam_rel_pass1
-        mov     ecx, [current_pc]
+        mov     ecx, [Snickers_PC]
         add     ecx, 2
         sub     eax, ecx
         cmp     eax, -128
@@ -1693,11 +1654,6 @@ parse_addressing_mode:
         pop     ebx
         ret
 
-expr_value      dd 0
-
-; ============================================================================
-; eval_expression - Evaluador recursivo descendente (Bitwise support)
-; ============================================================================
 eval_expression:
         call    eval_expr_xor
         mov     ebx, eax
@@ -1968,11 +1924,11 @@ eval_factor:
         ret
 .ef_pc:
         inc     esi
-        mov     eax, [current_pc]
+        mov     eax, [Snickers_PC]
         ret
 .ef_symbol:
         push    edi
-        lea     edi, [token_buf]
+        lea     edi, [KitKat_Buf]
         xor     ecx, ecx
 .ef_sym_copy:
         mov     al, [esi]
@@ -1993,13 +1949,10 @@ eval_factor:
 .ef_sym_done2:
         mov     byte [edi+ecx], 0
         pop     edi
-        lea     esi, [token_buf]
+        lea     esi, [KitKat_Buf]
         call    find_symbol
         ret
 
-; ============================================================================
-; Tabla Hash de Simbolos (DJB2)
-; ============================================================================
 hash_string:
         push    ecx
         push    edx
@@ -2030,7 +1983,7 @@ find_symbol:
         push    esi
         call    hash_string
         pop     esi
-        mov     ebx, [pool_hash]
+        mov     ebx, [Donut_Pool]
         mov     ecx, [ebx + eax*4]
         test    ecx, ecx
         jz      .not_found
@@ -2040,7 +1993,7 @@ find_symbol:
         mov     eax, ecx
         mov     ebx, SYM_ENTRY_SIZE
         mul     ebx
-        add     eax, [pool_symbols]
+        add     eax, [Caramel_Pool]
         mov     edi, eax
         pop     eax
         push    esi
@@ -2050,8 +2003,10 @@ find_symbol:
         pop     esi
         test    eax, eax
         jnz     .found
-        mov     ebx, [pool_symbols]
-        mov     ecx, [ebx + ecx*SYM_ENTRY_SIZE + 56]
+               mov     ebx, [Caramel_Pool]
+        mov     eax, ecx
+        imul    eax, SYM_ENTRY_SIZE
+        mov     ecx, [ebx + eax + 56]
         test    ecx, ecx
         jnz     .loop
 .not_found:
@@ -2065,18 +2020,18 @@ add_symbol:
         push    esi
         call    hash_string
         pop     esi
-        mov     ebx, [pool_hash]
+        mov     ebx, [Donut_Pool]
         mov     edi, [ebx + eax*4]
-        mov     ebx, [num_symbols]
+        mov     ebx, [York_Syms]
         cmp     ebx, MAX_SYMBOLS
         jge     .full
         push    eax
         mov     eax, ebx
         mov     ecx, SYM_ENTRY_SIZE
         mul     ecx
-        add     eax, [pool_symbols]
+        add     eax, [Caramel_Pool]
         mov     ebp, eax
-        pop     eax
+        pop    eax
         push    esi
         mov     edi, ebp
         mov     ecx, 48
@@ -2100,11 +2055,14 @@ add_symbol:
         pop     esi
         mov     [ebp + 48], edx
         mov     [ebp + 52], ecx
-        mov     ebx, [pool_hash]
+        mov     ebx, [Donut_Pool]
         mov     eax, [ebx + eax*4]
         mov     [ebp + 56], eax
-        inc     dword [num_symbols]
-        mov     [ebx + eax*4], dword [num_symbols]
+        inc     dword [York_Syms]
+        
+        ; FIXED: Avoid memory-to-memory move
+        mov     ecx, [York_Syms]
+        mov     [ebx + eax*4], ecx
 .full:
         ret
 
@@ -2146,10 +2104,10 @@ str_equal:
 
 emit_byte_al:
         push    edx
-        mov     edx, [pool_output]
-        add     edx, [output_pos]
+        mov     edx, [Bonbon_Pool]
+        add     edx, [Uno_Bar_Pos]
         mov     [edx], al
-        inc     dword [output_pos]
+        inc     dword [Uno_Bar_Pos]
         pop     edx
         ret
 
@@ -2192,7 +2150,7 @@ write_nes_file:
         mov     [edi+8], eax
         mov     [edi+12], eax
         push    0
-        push    bytes_rw
+        push    RockCandy_Bytes
         push    16
         push    edi
         push    ebx
@@ -2200,34 +2158,34 @@ write_nes_file:
         add     esp, 16
         mov     ecx, [ines_prg]
         shl     ecx, 14
-        mov     edx, [output_pos]
+        mov     edx, [Uno_Bar_Pos]
         cmp     edx, ecx
         jbe     .wf_write_prg
         mov     edx, ecx
 .wf_write_prg:
         push    ecx
         push    0
-        push    bytes_rw
+        push    RockCandy_Bytes
         push    edx
-        push    dword [pool_output]
+        push    dword [Bonbon_Pool]
         push    ebx
         call    [WriteFile]
         pop     ecx
-        mov     edx, [output_pos]
+        mov     edx, [Uno_Bar_Pos]
         cmp     edx, ecx
         jge     .wf_close
         sub     ecx, edx
-        mov     edi, [pool_output]
-        add     edi, [output_pos]
+        mov     edi, [Bonbon_Pool]
+        add     edi, [Uno_Bar_Pos]
         push    ecx
         mov     al, 0xFF
         rep     stosb
         pop     ecx
         push    0
-        push    bytes_rw
+        push    RockCandy_Bytes
         push    ecx
-        mov     eax, [pool_output]
-        add     eax, [output_pos]
+        mov     eax, [Bonbon_Pool]
+        add     eax, [Uno_Bar_Pos]
         push    eax
         push    ebx
         call    [WriteFile]
@@ -2260,10 +2218,10 @@ print_string:
         jmp     .ps_len
 .ps_write:
         push    0
-        push    bytes_rw
+        push    RockCandy_Bytes
         push    ecx
         push    esi
-        push    dword [stdout_handle]
+        push    dword [Oreo_Handle]
         call    [WriteFile]
         pop     ecx
         pop     esi
@@ -2284,10 +2242,10 @@ print_string_err:
         jmp     .pse_len
 .pse_write:
         push    0
-        push    bytes_rw
+        push    RockCandy_Bytes
         push    ecx
         push    esi
-        push    dword [stderr_handle]
+        push    dword [Peppermint_Handle]
         call    [WriteFile]
         pop     ecx
         pop     esi
